@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Shopify App</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Integration Successful</h1>
+      <button id="listProducts">List Products</button>
+      <div id="productList" class="product-grid"></div>
+    </div>
+
+    <script>
+      const urlParams = new URLSearchParams(window.location.search);
+      const shop = urlParams.get("shop");
+
+      document
+        .getElementById("listProducts")
+        .addEventListener("click", async () => {
+          const productList = document.getElementById("productList");
+          productList.innerHTML = "<p>Loading products...</p>"; // Show a loading message
+
+          try {
+            const response = await fetch("/api/products", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ shop }),
+            });
+
+            if (!response.ok) {
+              const errorText = await response.text();
+              throw new Error(`Failed to load products: ${errorText}`);
+            }
+
+            const data = await response.json();
+            if (data.errors) {
+              throw new Error(`GraphQL Error: ${JSON.stringify(data.errors)}`);
+            }
+
+            productList.innerHTML = ""; // Clear loading message
+
+            if (data.data.products.edges.length === 0) {
+              productList.innerHTML = "<p>No products found.</p>";
+              return;
+            }
+
+            data.data.products.edges.forEach((edge) => {
+              const product = edge.node;
+              const card = document.createElement("div");
+              card.className = "product-card";
+
+              const imageUrl = product.images.edges.length
+                ? product.images.edges[0].node.url
+                : "https://via.placeholder.com/150";
+              const price = product.priceRangeV2.minVariantPrice.amount;
+              const currency =
+                product.priceRangeV2.minVariantPrice.currencyCode;
+              const description =
+                product.description.length > 100
+                  ? product.description.substring(0, 100) + "..."
+                  : product.description;
+
+              card.innerHTML = `
+                        <img src="${imageUrl}" alt="${product.title}">
+                        <div class="product-info">
+                            <h3>${product.title}</h3>
+                            <p>${description}</p>
+                            <div class="product-price">${price} ${currency}</div> 
+                        </div>
+                    `;
+              productList.appendChild(card);
+            });
+          } catch (error) {
+            console.error("Error fetching products:", error);
+            productList.innerHTML = `<p style="color: red;">${error.message}</p>`;
+          }
+        });
+    </script>
+  </body>
+</html>

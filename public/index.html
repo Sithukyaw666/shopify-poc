@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Shopify POC</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Integration with Shopify</h1>
+      <p>Enter ShopName</p>
+      <form id="shopForm" class="nice-form">
+        <div class="shop-input-container">
+          <input
+            type="text"
+            id="shopNameInput"
+            name="shopNameInput"
+            placeholder="your-store"
+            required
+          /><span>.myshopify.com</span>
+        </div>
+        <button type="submit">Integrate</button>
+      </form>
+    </div>
+
+    <script>
+      document
+        .getElementById("shopForm")
+        .addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const shopName = document.getElementById("shopNameInput").value;
+          const response = await fetch("/auth", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ shop: shopName }),
+          });
+          const data = await response.json();
+          window.location.href = data.redirectUrl;
+        });
+    </script>
+  </body>
+</html>
