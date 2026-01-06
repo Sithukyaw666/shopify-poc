@@ -1,6 +1,9 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const axios = require("axios");
+const crypto = require("crypto");
+const querystring = require("querystring");
+const cookieParser = require("cookie-parser");
 const app = express();
 const port = 3000;
 
@@ -8,29 +11,84 @@ require("dotenv").config();
 
 app.use(express.static("public"));
 app.use(bodyParser.json());
+app.use(cookieParser());
 
 const { SHOPIFY_API_KEY, SHOPIFY_API_SECRET, SHOPIFY_SCOPES, REDIRECT_URI } =
   process.env;
 const shopTokens = {};
 
+const verifyHmac = (query) => {
+  const { hmac, ...rest } = query;
+  const ordered = Object.keys(rest)
+    .sort()
+    .reduce((obj, key) => {
+      obj[key] = rest[key];
+      return obj;
+    }, {});
+  const message = querystring.stringify(ordered);
+  const providedHmac = Buffer.from(hmac, "utf-8");
+  const generatedHash = Buffer.from(
+    crypto
+      .createHmac("sha256", SHOPIFY_API_SECRET)
+      .update(message)
+      .digest("hex"),
+    "utf-8"
+  );
+
+  try {
+    return crypto.timingSafeEqual(generatedHash, providedHmac);
+  } catch (e) {
+    return false;
+  }
+};
+
 app.get("/", (req, res) => {
   res.sendFile(__dirname + "/public/index.html");
 });
 
-app.post("/auth", (req, res) => {
-  const { shop } = req.body;
-  if (!shop) {
-    return res.status(400).send("Missing shop parameter.");
+app.get("/api", (req, res) => {
+  const { shop, hmac } = req.query;
+
+  if (!shop || !hmac) {
+    return res.status(400).send("Missing shop or hmac parameter.");
   }
-  const authUrl = `https://${shop}.myshopify.com/admin/oauth/authorize?client_id=${SHOPIFY_API_KEY}&scope=${SHOPIFY_SCOPES}&redirect_uri=${REDIRECT_URI}&state=nonce123`;
-  res.json({ redirectUrl: authUrl });
+
+  if (!verifyHmac(req.query)) {
+    return res.status(400).send("HMAC validation failed.");
+  }
+
+  if (shopTokens[shop]) {
+    return res.redirect(`/app.html?shop=${shop}`);
+  }
+
+  const state = crypto.randomBytes(16).toString("hex");
+  res.cookie("shopify_auth_state", state, {
+    httpOnly: true,
+    secure: false,
+    sameSite: "lax",
+  });
+
+  const authUrl = `https://${shop}/admin/oauth/authorize?client_id=${SHOPIFY_API_KEY}&scope=${SHOPIFY_SCOPES}&redirect_uri=${REDIRECT_URI}&state=${state}`;
+
+  res.redirect(authUrl);
 });
 
 app.get("/auth/callback", async (req, res) => {
-  const { code, shop } = req.query;
+  const { code, shop, hmac, state } = req.query;
+  const stateCookie = req.cookies.shopify_auth_state;
 
-  if (!code || !shop) {
-    return res.status(400).send("Missing code or shop parameter.");
+  if (!code || !shop || !hmac || !state) {
+    return res
+      .status(400)
+      .send("Missing code, shop, hmac, or state parameter.");
+  }
+
+  if (state !== stateCookie) {
+    return res.status(403).send("Request origin cannot be verified.");
+  }
+
+  if (!verifyHmac(req.query)) {
+    return res.status(400).send("HMAC validation failed.");
   }
 
   try {
@@ -45,6 +103,7 @@ app.get("/auth/callback", async (req, res) => {
 
     const accessToken = response.data.access_token;
     shopTokens[shop] = accessToken;
+    res.clearCookie("shopify_auth_state");
 
     res.redirect(`/app.html?shop=${shop}`);
   } catch (error) {

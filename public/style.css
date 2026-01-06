@@ -153,3 +153,19 @@ li {
     margin-top: 10px; /* Add some space above the button */
     width: 100%; /* Make the button full width */
 }
+
+.btn-connect {
+    display: inline-block;
+    background-color: #008060; /* Shopify Green */
+    color: white;
+    padding: 12px 24px;
+    text-decoration: none;
+    border-radius: 5px;
+    font-weight: bold;
+    font-size: 18px;
+    transition: background-color 0.2s ease;
+}
+
+.btn-connect:hover {
+    background-color: #005e46;
+}
