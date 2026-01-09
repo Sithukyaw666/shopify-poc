@@ -9,6 +9,7 @@
   <body>
     <div class="container">
       <h1>Integration Successful</h1>
+      <p id="botIdDisplay" style="text-align: center; color: #5c6ac4; font-weight: bold;"></p>
       <button id="listProducts">List Products</button>
       <div id="productList" class="product-grid"></div>
     </div>
@@ -16,6 +17,11 @@
     <script>
       const urlParams = new URLSearchParams(window.location.search);
       const shop = urlParams.get("shop");
+      const botId = urlParams.get("botId");
+
+      if (botId && botId !== 'undefined' && botId !== 'unknown') {
+        document.getElementById('botIdDisplay').textContent = `Linked Bot ID: ${botId}`;
+      }
 
       document
         .getElementById("listProducts")

@@ -42,6 +42,28 @@ const verifyHmac = (query) => {
   }
 };
 
+app.get("/api/install", (req, res) => {
+  const { botId } = req.query;
+
+  if (!botId) {
+    return res.status(400).send("Missing botId parameter.");
+  }
+
+  // Set a secure, httpOnly cookie with the botId
+  res.cookie("pluggi_bot_id", botId, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production", // Secure in production
+    sameSite: "lax",
+    maxAge: 10 * 60 * 1000, // 10 minutes
+  });
+
+  // Redirect to the Shopify "App Store" / Install Link
+  // Using the link from index.html as the mock App Store entry point
+  const shopifyInstallUrl = "https://admin.shopify.com/?organization_id=198831934&no_redirect=true&redirect=/oauth/redirect_from_developer_dashboard?client_id%3Dd716db50e65f60d265dd47a861926306";
+  
+  res.redirect(shopifyInstallUrl);
+});
+
 app.get("/", (req, res) => {
   res.sendFile(__dirname + "/public/index.html");
 });
@@ -91,6 +113,12 @@ app.get("/auth/callback", async (req, res) => {
     return res.status(400).send("HMAC validation failed.");
   }
 
+  // Retrieve Bot ID from cookie
+  const botId = req.cookies.pluggi_bot_id;
+  if (!botId) {
+      console.warn("Warning: No Bot ID found in cookie during callback.");
+  }
+
   try {
     const response = await axios.post(
       `https://${shop}/admin/oauth/access_token`,
@@ -103,9 +131,17 @@ app.get("/auth/callback", async (req, res) => {
 
     const accessToken = response.data.access_token;
     shopTokens[shop] = accessToken;
-    res.clearCookie("shopify_auth_state");
+    
+    // Save integration logic (Mock)
+    if (botId) {
+        console.log(`SUCCESS: Integrated Bot ID [${botId}] with Shop [${shop}]`);
+        console.log(`Access Token: ${accessToken}`);
+    }
 
-    res.redirect(`/app.html?shop=${shop}`);
+    res.clearCookie("shopify_auth_state");
+    res.clearCookie("pluggi_bot_id"); // Clean up
+
+    res.redirect(`/app.html?shop=${shop}&botId=${botId || 'unknown'}`);
   } catch (error) {
     console.error("Error exchanging code for access token:", error);
     res.status(500).send("Error exchanging code for access token.");

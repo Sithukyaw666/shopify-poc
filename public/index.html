@@ -11,13 +11,21 @@
       <h1>Shopify Integration</h1>
 
       <div class="action-container" style="margin-top: 2rem">
-        <a
-          href="https://admin.shopify.com/?organization_id=198831934&no_redirect=true&redirect=/oauth/redirect_from_developer_dashboard?client_id%3Dd716db50e65f60d265dd47a861926306"
-          class="btn-connect"
-        >
+        <input type="text" id="botId" placeholder="Enter Bot ID" style="padding: 10px; border-radius: 5px; border: 1px solid #ccc; margin-right: 10px;" />
+        <button onclick="installApp()" class="btn-connect" style="cursor: pointer; padding: 10px 20px; background-color: #5c6ac4; color: white; border: none; border-radius: 5px;">
           Connect Shopify
-        </a>
+        </button>
       </div>
     </div>
+    <script>
+      function installApp() {
+        const botId = document.getElementById('botId').value;
+        if (!botId) {
+          alert('Please enter a Bot ID');
+          return;
+        }
+        window.location.href = `/api/install?botId=${encodeURIComponent(botId)}`;
+      }
+    </script>
   </body>
 </html>
